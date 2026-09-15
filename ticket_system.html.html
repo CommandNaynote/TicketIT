@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT Service Ticket System</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f3f4f6; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .container { background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); width: 100%; max-width: 800px; padding: 25px; margin-bottom: 20px; }
+        h2 { color: #1f2937; text-align: center; margin-top: 0; margin-bottom: 20px; font-size: 24px; }
+        h3 { color: #374151; margin-top: 0; margin-bottom: 15px; border-bottom: 2px solid #3b82f6; padding-bottom: 8px; }
+        
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; color: #4b5563; font-size: 14px; }
+        select, input[type="text"], textarea { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 15px; background-color: #f9fafb; transition: all 0.2s; outline: none; }
+        select:focus, input[type="text"]:focus, textarea:focus { border-color: #3b82f6; background-color: #fff; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        
+        .btn-submit { width: 100%; background-color: #3b82f6; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        .btn-submit:hover { background-color: #2563eb; }
+        .delete-btn { background-color: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; }
+        .delete-btn:hover { background-color: #dc2626; }
+
+        .ticket-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 15px; margin-bottom: 12px; background: #fff; }
+        .ticket-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .ticket-title { font-weight: bold; font-size: 16px; color: #111827; }
+        .badge { padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; }
+        .badge-pending { background-color: #f59e0b; }
+        .badge-progress { background-color: #3b82f6; }
+        .badge-done { background-color: #10b981; }
+        .ticket-meta { font-size: 13px; color: #6b7280; margin-bottom: 10px; }
+        .ticket-desc { font-size: 14px; color: #374151; background: #f9fafb; padding: 10px; border-radius: 6px; margin-bottom: 10px; white-space: pre-line; }
+
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: #10b981; color: white; padding: 10px 20px; border-radius: 20px; font-weight: 500; display: none; box-shadow: 0 2px 10px rgba(0,0,0,0.15); z-index: 1000; }
+    </style>
+</head>
+<body>
+
+<div id="toast" class="toast">📋 ดำเนินการเรียบร้อย!</div>
+
+<h2>🎫 IT Ticket System</h2>
+
+<div class="container">
+    <h3>➕ เปิด Ticket แจ้งซ่อม / ขอรับบริการ IT</h3>
+    <form id="ticketForm" onsubmit="createTicket(event)">
+        <div class="form-group">
+            <label>ผู้แจ้งปัญหา / ชื่อเครื่อง:</label>
+            <input type="text" id="ticketUser" placeholder="ระบุชื่อผู้แจ้งหรือแผนก..." required>
+        </div>
+        <div class="form-group">
+            <label>หมวดหมู่ปัญหา:</label>
+            <select id="ticketCategory" required>
+                <option value="Hardware / เครื่องคอมพิวเตอร์">Hardware / เครื่องคอมพิวเตอร์</option>
+                <option value="Software / โปรแกรมใช้งาน">Software / โปรแกรมใช้งาน</option>
+                <option value="Network / อินเทอร์เน็ต">Network / อินเทอร์เน็ต</option>
+                <option value="Printer / อุปกรณ์ต่อพ่วง">Printer / อุปกรณ์ต่อพ่วง</option>
+                <option value="อื่นๆ">อื่นๆ</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>ความสำคัญ:</label>
+            <select id="ticketPriority">
+                <option value="ปกติ">ปกติ (Normal)</option>
+                <option value="ด่วน">ด่วน (High)</option>
+                <option value="ด่วนที่สุด">ด่วนที่สุด (Urgent)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>รายละเอียดปัญหา:</label>
+            <textarea id="ticketDesc" rows="3" placeholder="ระบุอาการเสีย หรือความต้องการ..." required></textarea>
+        </div>
+        <button type="submit" class="btn-submit">📩 ส่ง Ticket แจ้งซ่อม</button>
+    </form>
+</div>
+
+<div class="container">
+    <h3>📋 รายการ Ticket ทั้งหมด</h3>
+    <div class="form-group">
+        <label>กรองตามสถานะ:</label>
+        <select id="filterTicketStatus" onchange="renderTickets()">
+            <option value="ทั้งหมด">ทั้งหมด</option>
+            <option value="รอดำเนินการ">รอดำเนินการ</option>
+            <option value="กำลังดำเนินการ">กำลังดำเนินการ</option>
+            <option value="เสร็จสิ้น">เสร็จสิ้น</option>
+        </select>
+    </div>
+
+    <div id="ticketList"></div>
+</div>
+
+<script>
+let tickets = JSON.parse(localStorage.getItem("it_tickets")) || [];
+
+function showToast(msg) {
+    const toast = document.getElementById("toast");
+    toast.textContent = msg;
+    toast.style.display = "block";
+    setTimeout(() => { toast.style.display = "none"; }, 2000);
+}
+
+function createTicket(e) {
+    e.preventDefault();
+    const user = document.getElementById("ticketUser").value.trim();
+    const category = document.getElementById("ticketCategory").value;
+    const priority = document.getElementById("ticketPriority").value;
+    const desc = document.getElementById("ticketDesc").value.trim();
+
+    const newTicket = {
+        id: "TK-" + Date.now().toString().slice(-4),
+        user, category, priority, desc,
+        status: "รอดำเนินการ",
+        date: new Date().toLocaleString("th-TH")
+    };
+
+    tickets.unshift(newTicket);
+    localStorage.setItem("it_tickets", JSON.stringify(tickets));
+    
+    document.getElementById("ticketForm").reset();
+    renderTickets();
+    showToast("✨ สร้าง Ticket เรียบร้อย!");
+}
+
+function updateStatus(id, newStatus) {
+    const tk = tickets.find(t => t.id === id);
+    if(tk) {
+        tk.status = newStatus;
+        localStorage.setItem("it_tickets", JSON.stringify(tickets));
+        renderTickets();
+        showToast("🔄 อัปเดตสถานะสำเร็จ");
+    }
+}
+
+function deleteTicket(id) {
+    if(confirm("ต้องการลบ Ticket นี้ใช่หรือไม่?")) {
+        tickets = tickets.filter(t => t.id !== id);
+        localStorage.setItem("it_tickets", JSON.stringify(tickets));
+        renderTickets();
+        showToast("🗑️ ลบ Ticket เรียบร้อย");
+    }
+}
+
+function renderTickets() {
+    const list = document.getElementById("ticketList");
+    const filter = document.getElementById("filterTicketStatus").value;
+    list.innerHTML = "";
+
+    const filteredTickets = filter === "ทั้งหมด" ? tickets : tickets.filter(t => t.status === filter);
+
+    if(filteredTickets.length === 0) {
+        list.innerHTML = "<p style='text-align:center; color:#9ca3af; padding: 10px;'>ยังไม่มีรายการ Ticket</p>";
+        return;
+    }
+
+    filteredTickets.forEach(t => {
+        let badgeClass = "badge-pending";
+        if(t.status === "กำลังดำเนินการ") badgeClass = "badge-progress";
+        if(t.status === "เสร็จสิ้น") badgeClass = "badge-done";
+
+        const card = document.createElement("div");
+        card.className = "ticket-card";
+        card.innerHTML = `
+            <div class="ticket-header">
+                <span class="ticket-title">[${t.id}] ${t.user}</span>
+                <span class="badge ${badgeClass}">${t.status}</span>
+            </div>
+            <div class="ticket-meta">
+                📂 <b>หมวดหมู่:</b> ${t.category} | ⚡ <b>ความสำคัญ:</b> <span style="color:${t.priority==='ด่วนที่สุด'?'#ef4444':'inherit'}; font-weight:${t.priority!=='ปกติ'?'bold':'normal'}">${t.priority}</span> | 🕒 ${t.date}
+            </div>
+            <div class="ticket-desc">${t.desc}</div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <label style="display:inline; font-size:13px; margin-right:5px;">เปลี่ยนสถานะ:</label>
+                    <select onchange="updateStatus('${t.id}', this.value)" style="width:auto; padding:4px 8px; font-size:13px;">
+                        <option value="รอดำเนินการ" ${t.status==='รอดำเนินการ'?'selected':''}>รอดำเนินการ</option>
+                        <option value="กำลังดำเนินการ" ${t.status==='กำลังดำเนินการ'?'selected':''}>กำลังดำเนินการ</option>
+                        <option value="เสร็จสิ้น" ${t.status==='เสร็จสิ้น'?'selected':''}>เสร็จสิ้น</option>
+                    </select>
+                </div>
+                <button class="delete-btn" onclick="deleteTicket('${t.id}')">ลบ</button>
+            </div>
+        `;
+        list.appendChild(card);
+    });
+}
+
+// Initial Run
+renderTickets();
+</script>
+
+</body>
+</html>
